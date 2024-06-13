@@ -166,10 +166,14 @@ def move_tiles(window, tiles, clock, direction):
         updated = False
         sorted_tiles = sorted(tiles.values(), key=sort_func, reverse=reverse)
 
+        print("mulai")
         for i, tile in enumerate(sorted_tiles):
+            print(i)
+            print(tile.value)
+            # time.sleep(3)
             if boundary_check(tile):
                 continue
-
+            
             next_tile = get_next_tile(tile)
             if not next_tile:
                 tile.move(delta)
@@ -198,11 +202,17 @@ def move_tiles(window, tiles, clock, direction):
 
 
 def end_move(tiles):
+    for tile in tiles.values():
+        if(tile.value == 2048):
+            return "win"
     if len(tiles) == 16:
-        return "lost"
+        return "lose"
 
     row, col = get_random_pos(tiles)
-    tiles[f"{row}{col}"] = Tile(random.choice([2, 4]), row, col)
+    tiles[f"{row}{col}"] = Tile(
+                            random.choice([2, 4]), 
+                            row, 
+                            col)
     return "continue"
 
 
@@ -222,33 +232,130 @@ def generate_tiles():
 
     return tiles
 
+def get_empty_cells(tiles):
+    empty_cells = []
+    for row in range(ROWS):
+        for col in range(COLS):
+            if f"{row}{col}" not in tiles:
+                empty_cells.append((row, col))
+    return empty_cells
+
+def heuristics(tiles, direction):
+    weight = 0
+    empty_cells = 0
+
+    if direction == "left":
+        sort_func = lambda x: x.col
+        reverse = False
+        boundary_check = lambda tile: tile.col == 0
+        get_next_tile = lambda tile: tiles.get(f"{tile.row}{tile.col - 1}")
+    elif direction == "right":
+        sort_func = lambda x: x.col
+        reverse = True
+        boundary_check = lambda tile: tile.col == COLS - 1
+        get_next_tile = lambda tile: tiles.get(f"{tile.row}{tile.col + 1}")
+    elif direction == "up":
+        sort_func = lambda x: x.row
+        reverse = False
+        boundary_check = lambda tile: tile.row == 0
+        get_next_tile = lambda tile: tiles.get(f"{tile.row - 1}{tile.col}")
+    elif direction == "down":
+        sort_func = lambda x: x.row
+        reverse = True
+        boundary_check = lambda tile: tile.row == ROWS - 1
+        get_next_tile = lambda tile: tiles.get(f"{tile.row + 1}{tile.col}")
+
+    sorted_tiles = sorted(tiles.values(), key=sort_func, reverse=reverse)
+    empty_cells = len(get_empty_cells(sorted_tiles))
+    print("mulai")
+    for i, tile in enumerate(sorted_tiles):
+        print(i)
+        print(tile.value)
+        # time.sleep(3)
+        if boundary_check(tile):
+            continue
+        
+        next_tile = get_next_tile(tile)
+        # hitung weigth
+        if not next_tile:
+            continue
+        elif(tile.value == next_tile.value):
+            weight += next_tile.value * 2
+            sorted_tiles.pop(i)
+        else:
+            continue
+
+    max_tile = Tile(-999, -1, -1)
+    for tile in sorted_tiles:
+        if tile.value > max_tile.value:
+            max_tile = tile
+
+    if((max_tile.row==0 and max_tile.col==0) 
+       and (direction=="left" or direction=="up")):
+        weight += max_tile.value*2.5
+    elif((max_tile.row==0 and max_tile.col==3) 
+         and (direction=="right" or direction=="up")) :
+        weight += max_tile.value*2.5
+    elif((max_tile.row==3 and max_tile.col==0) 
+         and (direction=="left" or direction=="down")):
+        weight += max_tile.value*2.5
+    elif((max_tile.row==3 and max_tile.col==3) 
+         and (direction=="right" or direction=="down")):
+        weight += max_tile.value*2.5
+             
+    return weight + empty_cells
+
+
+def greedy_decision(moves, tiles):
+    weight_dec = {}
+    for move in moves:
+        weight_dec[move] = heuristics(tiles, move)
+    sorted_weight_dec = sorted(weight_dec.items(), key=lambda x: x[1], reverse=True)
+    return sorted_weight_dec[0][0]
 
 def main(window):
     clock = pygame.time.Clock()
     run = True
-
     tiles = generate_tiles()
-
+    res = "run"
+    moves = {
+        "left": "left", 
+        "down":"down", 
+        "right": "right", 
+        "up": "up"
+        }
     while run:
         clock.tick(FPS)
+        # for event in pygame.event.get():
+        #     if event.type == pygame.QUIT:
+        #         run = False
+        #         break
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                run = False
-                break
-
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT:
-                    move_tiles(window, tiles, clock, "left")
-                if event.key == pygame.K_RIGHT:
-                    move_tiles(window, tiles, clock, "right")
-                if event.key == pygame.K_UP:
-                    move_tiles(window, tiles, clock, "up")
-                if event.key == pygame.K_DOWN:
-                    move_tiles(window, tiles, clock, "down")
-
+        #     if event.type == pygame.KEYDOWN:
+        #         if event.key == pygame.K_LEFT:
+        #             res = move_tiles(window, tiles, clock, "left")
+        #         if event.key == pygame.K_RIGHT:
+        #             res = move_tiles(window, tiles, clock, "right")
+        #         if event.key == pygame.K_UP:
+        #             res = move_tiles(window, tiles, clock, "up")
+        #         if event.key == pygame.K_DOWN:
+        #             res = move_tiles(window, tiles, clock, "down")
+        res = move_tiles(window, tiles, clock, moves[greedy_decision(moves, tiles)])
         draw(window, tiles)
+        if(res == "lose" or res == "win"):
+            run = False
+            if(res == "lose"):
+                print("Game over")
+            else:
+                print("You win")
 
+            break
+    end = False
+    while(not end):
+        for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    end = True
+                    break
     pygame.quit()
 
 

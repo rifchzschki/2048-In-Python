@@ -1,2 +1,11 @@
 # 2048-In-Python
-Learn how to code the 2048 game in Python with Pygame!
+
+### requirements
+1. install pygame
+
+## How to run
+```bash
+    git clone https://github.com/rifchzschki/2048-In-Python
+    cd 2048-In-Python
+    python main.py
+```
